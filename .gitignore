@@ -1,0 +1,22 @@
+# Dependencias (se instalan con: composer install)
+/vendor/
+
+# Datos reales / sensibles: la copia completa de la BD contiene datos
+# personales de clientes y hashes de contraseñas. Se entrega aparte (ZIP).
+/database/lavanderia_superior.sql
+
+# Respaldos generados desde el sistema (se conserva la protección de la carpeta)
+/respaldos/*
+!/respaldos/.htaccess
+!/respaldos/index.html
+
+# Archivos subidos por los usuarios
+/assets/uploads/
+
+# Sistema operativo / editores
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.log
