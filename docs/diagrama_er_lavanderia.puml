@@ -1,0 +1,293 @@
+@startuml DiagramaER_LavanderiaSuperior
+
+' ============================================================
+'  DIAGRAMA ENTIDAD-RELACIÓN — LAVANDERÍA SUPERIOR
+'  Base de datos: lavanderia_superior
+'  Esquema v3 — Proyecto universitario UPTLL "Juana Ramírez"
+'  Layout en capas para evitar cruce de líneas
+' ============================================================
+
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+
+skinparam entity {
+    BackgroundColor #EFF6FF
+    BorderColor #1D4ED8
+    BorderThickness 1.5
+    FontColor #1F2937
+    FontSize 11
+    AttributeFontColor #374151
+    AttributeFontSize 10
+    StereotypeFontColor #6B7280
+    StereotypeFontSize 10
+}
+
+skinparam arrow {
+    Color #1D4ED8
+    Thickness 1.5
+    FontSize 10
+    FontColor #374151
+}
+
+skinparam package {
+    BackgroundColor #F8FAFC
+    BorderColor #CBD5E1
+    BorderThickness 1.5
+    FontSize 12
+    FontStyle Bold
+    FontColor #1D4ED8
+}
+
+skinparam note {
+    BackgroundColor #FFFBEB
+    BorderColor #F59E0B
+    FontSize 10
+}
+
+' ════════════════════════════════════════════════════════════
+'  LAYOUT ORIENTADO DE ARRIBA A ABAJO — 3 CAPAS:
+'
+'  CAPA SUPERIOR:   usuarios          clientes
+'  CAPA MEDIA:      servicios  ordenes  tasas_cambio  movimientos_caja
+'  CAPA INFERIOR:   detalle_orden  inventario_insumos  consumo_insumos
+'
+'  Con esto las FK bajan verticalmente y no se cruzan.
+' ════════════════════════════════════════════════════════════
+
+' ── CAPA SUPERIOR: Entidades de acceso y personas ──────────
+package "Acceso y Personas" #EFF6FF {
+
+    entity "**usuarios**" as usuarios {
+        * id : int(10) unsigned <<PK>>
+        --
+        * nombre : varchar(80)
+        * username : varchar(40) <<UNIQUE>>
+        * password : varchar(255)
+        * rol : enum('admin','vendedor')
+        activo : tinyint(1)
+        ultimo_login : datetime
+        created_at : timestamp
+    }
+
+    entity "**clientes**" as clientes {
+        * id : int(10) unsigned <<PK>>
+        --
+        * nombre : varchar(120)
+        * cedula_rif : varchar(20) <<UNIQUE>>
+        * telefono : varchar(20)
+        direccion : text
+        email : varchar(100)
+        puntos_acumulados : int(10) unsigned
+        activo : tinyint(1)
+        fecha_registro : timestamp
+    }
+
+}
+
+' ── CAPA MEDIA: Núcleo de operaciones ──────────────────────
+package "Núcleo Operacional" #FFF7ED {
+
+    entity "**servicios**" as servicios {
+        * id : int(10) unsigned <<PK>>
+        --
+        * nombre : varchar(100)
+        descripcion : text
+        * unidad_medida : enum('Kg','Unidad','Par','Pieza')
+        * precio_usd : decimal(10,4)
+        * tiempo_estimado_horas : decimal(5,1)
+        activo : tinyint(1)
+    }
+
+    entity "**ordenes**" as ordenes {
+        * id : int(10) unsigned <<PK>>
+        --
+        * cliente_id : int(10) unsigned <<FK>>
+        * fecha_recepcion : datetime
+        * fecha_promesa : datetime
+        fecha_entrega : datetime
+        * estado : enum('Recibido','Lavando',\n'Secando','Listo','Entregado','Cancelado')
+        * total_usd : decimal(12,4)
+        total_bs : decimal(16,2)
+        tasa_cambio_id : int(10) unsigned <<FK>>
+        * metodo_pago : enum('Efectivo_USD',\n'Efectivo_BS','Pago_Movil',\n'Punto_Venta','Transferencia','Mixto')
+        notas : text
+        foto_recepcion : varchar(255)
+        notificado_whatsapp : tinyint(1)
+        created_at : timestamp
+        updated_at : timestamp
+    }
+
+    entity "**tasas_cambio**" as tasas_cambio {
+        * id : int(10) unsigned <<PK>>
+        --
+        * fecha : date <<UNIQUE>>
+        * tasa_bcv : decimal(12,4)
+        tasa_paralelo : decimal(12,4)
+        registrado_por : varchar(80)
+        created_at : timestamp
+    }
+
+    entity "**movimientos_caja**" as movimientos_caja {
+        * id : int(10) unsigned <<PK>>
+        --
+        * tipo : enum('Ingreso','Egreso')
+        * concepto : enum('Servicio','Proveedor',\n'Nomina','Suministros','Otro')
+        * descripcion : varchar(255)
+        monto_usd : decimal(12,4)
+        monto_bs : decimal(16,2)
+        tasa_cambio : decimal(12,4)
+        orden_id : int(10) unsigned <<FK>>
+        * fecha : datetime
+        registrado_por : varchar(80)
+    }
+
+}
+
+' ── CAPA INFERIOR: Detalle e inventario ────────────────────
+package "Detalle e Inventario" #F0FDF4 {
+
+    entity "**detalle_orden**" as detalle_orden {
+        * id : int(10) unsigned <<PK>>
+        --
+        * orden_id : int(10) unsigned <<FK>>
+        * servicio_id : int(10) unsigned <<FK>>
+        * cantidad : decimal(8,3)
+        * precio_usd : decimal(10,4)
+        * subtotal : decimal(12,4) <<GENERATED>>
+        notas : varchar(255)
+    }
+
+    entity "**inventario_insumos**" as inventario_insumos {
+        * id : int(10) unsigned <<PK>>
+        --
+        * nombre : varchar(100)
+        * unidad : enum('ml','L','g','Kg','Unidad')
+        * stock_actual : decimal(10,3)
+        * stock_minimo : decimal(10,3)
+        consumo_por_kg : decimal(8,4)
+        costo_unidad : decimal(10,4)
+        activo : tinyint(1)
+    }
+
+    entity "**prendas_orden**" as prendas_orden {
+        * id : int(10) unsigned <<PK>>
+        --
+        * orden_id : int(10) unsigned <<FK>>
+        tipo_prenda_id : int(10) unsigned <<FK>>
+        * descripcion : varchar(60)
+        * cantidad : smallint unsigned
+        observacion : varchar(150)
+    }
+
+    entity "**tipos_prenda**" as tipos_prenda {
+        * id : int(10) unsigned <<PK>>
+        --
+        * nombre : varchar(60) <<UNIQUE>>
+        * activo : tinyint(1)
+        * orden : int
+    }
+
+    entity "**consumo_insumos**" as consumo_insumos {
+        * id : int(10) unsigned <<PK>>
+        --
+        * orden_id : int(10) unsigned <<FK>>
+        * insumo_id : int(10) unsigned <<FK>>
+        * cantidad_usada : decimal(10,4)
+        * fecha : timestamp
+    }
+
+}
+
+' ════════════════════════════════════════════════════════════
+'  RELACIONES
+'  Usando cardinalidades correctas:
+'  ||--o{  = uno a muchos (obligatorio a opcional)
+'  ||--||  = uno a uno
+' ════════════════════════════════════════════════════════════
+
+' CAPA SUPERIOR → CAPA MEDIA (bajan verticalmente)
+clientes        ||--o{ ordenes          : "1 cliente\ntiene N órdenes\n(ON UPDATE CASCADE)"
+tasas_cambio    ||--o{ ordenes          : "1 tasa aplicada\na N órdenes"
+
+' CAPA MEDIA → CAPA MEDIA (horizontales, no se cruzan)
+ordenes         ||--o{ movimientos_caja : "1 orden genera\n0..1 movimiento\n(ON DELETE SET NULL)"
+
+' CAPA MEDIA → CAPA INFERIOR (bajan verticalmente, sin cruce)
+ordenes         ||--o{ detalle_orden    : "1 orden contiene\nN líneas de detalle\n(ON DELETE CASCADE)"
+servicios       ||--o{ detalle_orden    : "1 servicio referenciado\nen N detalles"
+ordenes         ||--o{ consumo_insumos  : "1 orden genera\nN consumos\n(ON DELETE CASCADE)"
+
+ordenes         ||--o{ prendas_orden    : "1 orden registra\nN prendas recibidas\n(ON DELETE CASCADE)"
+tipos_prenda    |o--o{ prendas_orden    : "1 tipo clasifica\nN prendas\n(ON DELETE SET NULL)"
+
+' CAPA INFERIOR → CAPA INFERIOR (horizontal)
+inventario_insumos ||--o{ consumo_insumos : "1 insumo consumido\nen N órdenes"
+
+' ════════════════════════════════════════════════════════════
+'  NOTAS ACLARATORIAS
+' ════════════════════════════════════════════════════════════
+
+note right of ordenes
+  <b>Flujo de estados:</b>
+  Recibido → Lavando → Secando
+  → Listo → Entregado / Cancelado
+  ──────────────────────────────
+  Al pasar a "Listo":
+  dispara notificación WhatsApp
+  Al pasar a "Entregado":
+  fecha_entrega = NOW()
+end note
+
+note right of detalle_orden
+  <b>subtotal</b> es una columna
+  GENERATED ALWAYS AS
+  (cantidad × precio_usd) STORED
+  Calculado automáticamente
+  por el motor MySQL
+end note
+
+note left of inventario_insumos
+  <b>Descuento automático:</b>
+  Al crear orden con Kg:
+  stock_actual -= consumo_por_kg
+  × total_kg_de_la_orden
+  Registro en consumo_insumos
+  para trazabilidad completa
+end note
+
+note top of tasas_cambio
+  <b>Una sola tasa por DATE (UNIQUE)</b>
+  Si no existe tasa hoy →
+  el sistema usa la última
+  disponible automáticamente
+end note
+
+note bottom of prendas_orden
+  <b>descripcion</b> guarda el nombre
+  del tipo al registrar la orden,
+  así el ticket histórico no cambia
+  si el tipo se renombra
+end note
+
+entity "**sistema_config**" as sistema_config {
+    * clave : varchar(60) <<PK>>
+    --
+    valor : text
+    updated_at : timestamp
+}
+note right of sistema_config
+  Guarda <b>schema_version</b> para
+  las migraciones automáticas
+end note
+
+note top of usuarios
+  <b>Roles del sistema:</b>
+  admin    → acceso total
+  vendedor → solo módulos de venta
+  Password: bcrypt cost=12
+  Clave maestra para CRUD usuarios
+end note
+
+@enduml
